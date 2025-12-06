@@ -1,20 +1,19 @@
 # --- Over / Under 2.5 (3-Way Arbitrage) ---
-# Note: Columns must match the cleaned DataFrame names: 'O_odds', 'U_odds'
 query_over_under = """
 WITH joined_data AS (
     SELECT 
         t1.Team1, t1.Team2,
         -- Novibet Odds
-        t1.O_odds as O_novi, t1.U_odds as U_novi,
+        t1.O_odd as O_novi, t1.U_odd as U_novi,
         -- Stoiximan Odds
-        t2.O_odds as O_stoi, t2.U_odds as U_stoi,
+        t2.O_odd as O_stoi, t2.U_odd as U_stoi,
         -- Efbet Odds
         t3.O_odds as O_ef, t3.U_odds as U_ef
     FROM table1 t1 -- Novibet
     INNER JOIN table2 t2 ON t1.Team1 = t2.Team1 -- Stoiximan
     INNER JOIN table3 t3 ON t1.Team1 = t3.Team1 -- Efbet
     WHERE 
-        t1.O_odds IS NOT NULL AND t2.O_odds IS NOT NULL AND t3.O_odds IS NOT NULL
+        t1.O_odd IS NOT NULL AND t2.O_odd IS NOT NULL AND t3.O_odds IS NOT NULL
 ),
 calc_max AS (
     SELECT 
@@ -37,8 +36,6 @@ ORDER BY arb ASC;
 """
 
 # --- GG / NG (2-Way Arbitrage) ---
-# Note: Efbet GG/NG is not currently scraped, so this remains a 2-way check.
-# Columns 'GG_odd' and 'NG_odd' were NOT renamed in cleaning, so we use original names.
 query_gg_ng = """
 WITH joined_data AS (
     SELECT 
@@ -70,22 +67,21 @@ ORDER BY arb ASC;
 """
 
 # --- 1 X 2 (3-Way Arbitrage) ---
-# Note: Columns must match cleaned DataFrame names: "1", "X", "2"
 query_1X2 = """
 WITH joined_data AS (
     SELECT 
         t1.Team1, t1.Team2,
-        -- Novibet (Renamed from One_odd -> "1")
-        t1."1" as '1_novi', t1."X" as 'X_novi', t1."2" as '2_novi',
-        -- Stoiximan (Renamed from One_odd -> "1")
-        t2."1" as '1_stoi', t2."X" as 'X_stoi', t2."2" as '2_stoi',
-        -- Efbet (Native headers are "1", "X", "2")
+        -- Novibet
+        t1.One_odd as '1_novi', t1.X_odd as 'X_novi', t1.Two_odd as '2_novi',
+        -- Stoiximan
+        t2.One_odd as '1_stoi', t2.X_odd as 'X_stoi', t2.Two_odd as '2_stoi',
+        -- Efbet
         t3."1" as '1_ef', t3."X" as 'X_ef', t3."2" as '2_ef'
     FROM table1 t1
     INNER JOIN table2 t2 ON t1.Team1 = t2.Team1
     INNER JOIN table3 t3 ON t1.Team1 = t3.Team1
     WHERE 
-        t1."1" IS NOT NULL AND t2."1" IS NOT NULL AND t3."1" IS NOT NULL
+        t1.One_odd IS NOT NULL AND t2.One_odd IS NOT NULL AND t3."1" IS NOT NULL
 ),
 calc_max AS (
     SELECT 
