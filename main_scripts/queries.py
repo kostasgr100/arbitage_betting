@@ -1,227 +1,103 @@
+# --- Over / Under 2.5 (3-Way Arbitrage) ---
 query_over_under = """
-        with a1 as (
-        select nv.Team1, nv.Team2, 
-        nv.O_odd as O_novibet, nv.U_odd as U_novibet, 
-        stx.O_odd as O_stoiximan, stx.U_odd as U_stoiximan, 
-        from football_novibet nv
-        left join football_stoiximan stx on nv.Team1 = stx.Team1
-        where nv.Over = 'O 2.5'
-        ),
-        a2 as (
-        select nv.Team1, nv.Team2, 
-        nv.O_odd as O_novibet, nv.U_odd as U_novibet, 
-        stx.O_odd as O_stoiximan, stx.U_odd as U_stoiximan, 
-        from football_novibet nv
-        left join football_stoiximan stx on nv.Team2 = stx.Team2
-        where nv.Over = 'O 2.5'
-        ),
-        a3 as (
-        select * from a1 
-        where a1.O_stoiximan <> 'No_bet' and a1.U_stoiximan <> 'No_bet'
-        union all
-        select * from a2
-        where a2.O_stoiximan <> 'No_bet' and a2.U_stoiximan <> 'No_bet'
-        ),
-        a4 as (
-        select a3.Team1, a3.Team2, 
-        O_novibet, U_novibet, O_stoiximan, U_stoiximan,
-        cast(case when O_novibet > O_stoiximan then O_novibet else O_stoiximan end as float) as O_max,
-        cast(case when U_novibet > U_stoiximan then U_novibet else U_stoiximan end as float) as U_max
-        from a3
-        ),
-        a5 as (
-        select *, 1/O_max + 1/U_max as arb
-        from a4 
-        ),
-        a6 as (
-        select * from a5 
-        where arb < 1 
-        ),
-        a7 as (
-        select a6.*, nv.Team1 as Team1_novibet 
-        from a6 
-        left join football_novibet nv 
-        on a6.Team1 = nv.Team1 
-        and a6.O_novibet = nv.O_odd
-        and a6.U_novibet = nv.U_odd
-        ),
-        a8 as (
-        select a7.*, nv.Team2 as Team2_novibet 
-        from a7 
-        left join football_novibet nv 
-        on a7.Team1 = nv.Team1 
-        and a7.O_novibet = nv.O_odd
-        and a7.U_novibet = nv.U_odd
-        ),
-        a9 as (
-        select a8.*, stx.Team1 as Team1_stoiximan
-        from a8 
-        left join football_stoiximan as stx
-        on a8.Team1 = stx.Team1 
-        and a8.O_stoiximan = stx.O_odd
-        and a8.U_stoiximan = stx.U_odd
-        )
-        select a9.*, stx.Team2 as Team2_stoiximan
-        from a9
-        left join football_stoiximan as stx
-        on a9.Team2 = stx.Team2
-        and a9.O_stoiximan = stx.O_odd
-        and a9.U_stoiximan = stx.U_odd
-        order by arb
-"""
-
-
-query_gg_ng = """
-        with a1 as (
-        select nv.Team1, nv.Team2, 
-        nv.GG_odd as GG_novibet, nv.NG_odd as NG_novibet, 
-        stx.GG_odd as GG_stoiximan, stx.NG_odd as NG_stoiximan, 
-        from football_novibet nv
-        left join football_stoiximan stx on nv.Team1 = stx.Team1
-        where nv.GG <> 'Markets are not available'
-        ),
-        a2 as (
-        select nv.Team1, nv.Team2, 
-        nv.GG_odd as GG_novibet, nv.NG_odd as NG_novibet, 
-        stx.GG_odd as GG_stoiximan, stx.NG_odd as NG_stoiximan, 
-        from football_novibet nv
-        left join football_stoiximan stx on nv.Team2 = stx.Team2
-        where nv.GG <> 'Markets are not available'
-        ),
-        a3 as (
-        select * from a1 
-        where a1.GG_stoiximan <> 'No_bet' and a1.NG_stoiximan <> 'No_bet'
-        union all
-        select * from a2
-        where a2.GG_stoiximan <> 'No_bet' and a2.NG_stoiximan <> 'No_bet'
-        ),
-        a4 as (
-        select a3.Team1, a3.Team2, 
-        GG_novibet, NG_novibet, GG_stoiximan, NG_stoiximan,
-        cast(case when GG_novibet > GG_stoiximan then GG_novibet else GG_stoiximan end as float) as GG_max,
-        cast(case when NG_novibet > NG_stoiximan then NG_novibet else NG_stoiximan end as float) as NG_max
-        from a3
-        ),
-        a5 as (
-        select *, 1/GG_max + 1/NG_max as arb
-        from a4 
-        ),
-        a6 as (
-        select * from a5 
-        where arb < 1 
-        ),
-        a7 as (
-        select a6.*, nv.Team1 as Team1_novibet 
-        from a6 
-        left join football_novibet nv 
-        on a6.Team1 = nv.Team1 
-        and a6.GG_novibet = nv.GG_odd
-        and a6.NG_novibet = nv.NG_odd
-        ),
-        a8 as (
-        select a7.*, nv.Team2 as Team2_novibet 
-        from a7 
-        left join football_novibet nv 
-        on a7.Team1 = nv.Team1 
-        and a7.GG_novibet = nv.GG_odd
-        and a7.NG_novibet = nv.NG_odd
-        ),
-        a9 as (
-        select a8.*, stx.Team1 as Team1_stoiximan
-        from a8 
-        left join football_stoiximan as stx
-        on a8.Team1 = stx.Team1 
-        and a8.GG_stoiximan = stx.GG_odd
-        and a8.NG_stoiximan = stx.NG_odd
-        )
-        select a9.*, stx.Team2 as Team2_stoiximan
-        from a9
-        left join football_stoiximan as stx
-        on a9.Team2 = stx.Team2
-        and a9.GG_stoiximan = stx.GG_odd
-        and a9.NG_stoiximan = stx.NG_odd
-        order by arb
-"""
-
-
-
-
-query_1X2 = """
-with a1 as (
-    select nv.Team1, nv.Team2, 
-    nv.One_odd as one_novibet, nv.X_odd as x_novibet, nv.Two_odd as two_novibet, 
-    stx.One_odd as one_stoiximan, stx.X_odd as x_stoiximan, stx.Two_odd as two_stoiximan 
-    from football_novibet nv
-    left join football_stoiximan stx on nv.Team1 = stx.Team1
-    where nv.X <> 'Markets are not available'
+WITH joined_data AS (
+    SELECT 
+        t1.Team1, t1.Team2,
+        -- Novibet Odds
+        t1.O_odd as O_novi, t1.U_odd as U_novi,
+        -- Stoiximan Odds
+        t2.O_odd as O_stoi, t2.U_odd as U_stoi,
+        -- Efbet Odds
+        t3.O_odds as O_ef, t3.U_odds as U_ef
+    FROM table1 t1 -- Novibet
+    INNER JOIN table2 t2 ON t1.Team1 = t2.Team1 -- Stoiximan
+    INNER JOIN table3 t3 ON t1.Team1 = t3.Team1 -- Efbet
+    WHERE 
+        t1.O_odd IS NOT NULL AND t2.O_odd IS NOT NULL AND t3.O_odds IS NOT NULL
 ),
-a2 as (
-    select nv.Team1, nv.Team2, 
-    nv.One_odd as one_novibet, nv.X_odd as x_novibet, nv.Two_odd as two_novibet, 
-    stx.One_odd as one_stoiximan, stx.X_odd as x_stoiximan, stx.Two_odd as two_stoiximan 
-    from football_novibet nv
-    left join football_stoiximan stx on nv.Team2 = stx.Team2
-    where nv.X <> 'Markets are not available'
+calc_max AS (
+    SELECT 
+        *,
+        -- Find Best Odds across all 3
+        GREATEST(O_novi, O_stoi, O_ef) as O_max,
+        GREATEST(U_novi, U_stoi, U_ef) as U_max
+    FROM joined_data
 ),
-a3 as (
-    select * from a1 
-    --where a1.one_stoiximan <> 'No_bet' and a1.two_stoiximan <> 'No_bet'
-    union all
-    select * from a2
-    --where a2.one_stoiximan <> 'No_bet' and a2.two_stoiximan <> 'No_bet'
-),
-a4 as (
-    select a3.Team1, a3.Team2, 
-    one_novibet, x_novibet, two_novibet, one_stoiximan, x_stoiximan, two_stoiximan,
-    cast(case when one_novibet > one_stoiximan then one_novibet else one_stoiximan end as float) as one_max,
-    cast(case when x_novibet > x_stoiximan then x_novibet else x_stoiximan end as float) as x_max,
-    cast(case when two_novibet > two_stoiximan then two_novibet else two_stoiximan end as float) as two_max
-    from a3
-),
-a5 as (
-    select *, 1/one_max + 1/x_max + 1/two_max as arb
-    from a4 
-),
-a6 as (
-    select * from a5 
-    where arb < 1
-),
-a7 as (
-    select a6.*, nv.Team1 as Team1_novibet 
-    from a6 
-    left join football_novibet nv 
-    on a6.Team1 = nv.Team1 
-    and a6.one_novibet = nv.One_odd
-    and a6.x_novibet = nv.X_odd
-),
-a8 as (
-    select a7.*, nv.Team2 as Team2_novibet 
-    from a7 
-    left join football_novibet nv 
-    on a7.Team1 = nv.Team1 
-    and a7.one_novibet = nv.One_odd
-    and a7.x_novibet = nv.X_odd
-),
-a9 as (
-    select a8.*, stx.Team1 as Team1_stoiximan
-    from a8 
-    left join football_stoiximan as stx
-    on a8.Team1 = stx.Team1 
-    and a8.one_stoiximan = stx.One_odd
-    and a8.x_stoiximan = stx.X_odd
-),
-a10 as (
-    select a9.*, stx.Team2 as Team2_stoiximan
-    from a9
-    left join football_stoiximan as stx
-    on a9.Team2 = stx.Team2
-    and a9.one_stoiximan = stx.One_odd
-    and a9.x_stoiximan = stx.X_odd
+calc_arb AS (
+    SELECT 
+        *,
+        -- Calculate Arbitrage %
+        (1/O_max + 1/U_max) as arb
+    FROM calc_max
 )
-    select * from a10
-    where Team1_novibet is not NULL 
-    and  Team1_stoiximan is not NULL
-    and Team2_novibet is not NULL
-    and Team2_stoiximan is not NULL
-    order by arb
+SELECT * FROM calc_arb 
+WHERE arb < 1.00
+ORDER BY arb ASC;
+"""
+
+# --- GG / NG (2-Way Arbitrage - Efbet GG/NG not explicitly scraped yet) ---
+query_gg_ng = """
+WITH joined_data AS (
+    SELECT 
+        t1.Team1, t1.Team2,
+        -- Novibet
+        t1.GG_odd as GG_novi, t1.NG_odd as NG_novi,
+        -- Stoiximan
+        t2.GG_odd as GG_stoi, t2.NG_odd as NG_stoi
+    FROM table1 t1
+    INNER JOIN table2 t2 ON t1.Team1 = t2.Team1
+    WHERE t1.GG_odd IS NOT NULL AND t2.GG_odd IS NOT NULL
+),
+calc_max AS (
+    SELECT 
+        *,
+        GREATEST(GG_novi, GG_stoi) as GG_max,
+        GREATEST(NG_novi, NG_stoi) as NG_max
+    FROM joined_data
+),
+calc_arb AS (
+    SELECT 
+        *,
+        (1/GG_max + 1/NG_max) as arb
+    FROM calc_max
+)
+SELECT * FROM calc_arb 
+WHERE arb < 1.00
+ORDER BY arb ASC;
+"""
+
+# --- 1 X 2 (3-Way Arbitrage) ---
+query_1X2 = """
+WITH joined_data AS (
+    SELECT 
+        t1.Team1, t1.Team2,
+        -- Novibet
+        t1.One_odd as '1_novi', t1.X_odd as 'X_novi', t1.Two_odd as '2_novi',
+        -- Stoiximan
+        t2.One_odd as '1_stoi', t2.X_odd as 'X_stoi', t2.Two_odd as '2_stoi',
+        -- Efbet (Note: Efbet CSV headers are usually 1, X, 2)
+        t3."1" as '1_ef', t3."X" as 'X_ef', t3."2" as '2_ef'
+    FROM table1 t1
+    INNER JOIN table2 t2 ON t1.Team1 = t2.Team1
+    INNER JOIN table3 t3 ON t1.Team1 = t3.Team1
+    WHERE 
+        t1.One_odd IS NOT NULL AND t2.One_odd IS NOT NULL AND t3."1" IS NOT NULL
+),
+calc_max AS (
+    SELECT 
+        *,
+        GREATEST("1_novi", "1_stoi", "1_ef") as "1_max",
+        GREATEST("X_novi", "X_stoi", "X_ef") as "X_max",
+        GREATEST("2_novi", "2_stoi", "2_ef") as "2_max"
+    FROM joined_data
+),
+calc_arb AS (
+    SELECT 
+        *,
+        (1/"1_max" + 1/"X_max" + 1/"2_max") as arb
+    FROM calc_max
+)
+SELECT * FROM calc_arb 
+WHERE arb < 1.00
+ORDER BY arb ASC;
 """
