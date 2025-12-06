@@ -3,39 +3,45 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 import time, csv
+import pandas as pd
 
 #################################### Football ####################################################
 
-def novibet_football_text(page_url: str, driver: selenium.webdriver.chrome.webdriver.WebDriver)->str:    
-    # Go to Novibet
+def novibet_football_text(page_url: str, driver: selenium.webdriver.chrome.webdriver.WebDriver) -> str:    
     driver.get(page_url)
-    cookies = WebDriverWait(driver,5).until(EC.element_to_be_clickable((By.CLASS_NAME, 'acceptCookies_button'))).click()
-    # Close Log in pop up window
-    x_button = driver.find_element(By.CSS_SELECTOR, '[data-cy="closeBtn"]').click()  
+    try:
+        cookies = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CLASS_NAME, 'acceptCookies_button')))
+        cookies.click()
+    except:
+        pass
+        
+    try:
+        x_button = driver.find_element(By.CSS_SELECTOR, '[data-cy="closeBtn"]')
+        x_button.click()
+    except:
+        pass
+
     # Click Daily Coupon (Football)
-    dayly_coupon_button = driver.find_element(By.CSS_SELECTOR, 'a.ng-star-inserted[title="Daily coupon"]').click()
+    try:
+        daily_coupon_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'a.ng-star-inserted[title="Daily coupon"]')))
+        daily_coupon_button.click()
+    except:
+        print("Could not find Daily Coupon button")
+
     time.sleep(5)
-    # Wait for the dailyCoupon_body element to be present on the page
     wait = WebDriverWait(driver, 10)
-    # By deafult is the football first
     daily_coupon_body = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'dailyCoupon_body')))
-    # Extract footbal text
-    football_string = daily_coupon_body.text
-    return football_string
+    return daily_coupon_body.text
 
 
 def novibet_football_export(football_string: str): 
-    # Create list from the initial string
     initial_list = football_string.split('\n')
-    # Remove first elements of the list not needed
     remove_elements = ['Daily coupon','Football','Tennis','Basketball',
                        '24 hours','12 hours','3 hours','Popular First','SO']
     football_list = [x for x in initial_list if x not in remove_elements]
 
-    ### I want to find a way to increace the size of i if i insert elements
-    # Use padding for 'Markets are not available'
+    # Padding logic for 'Markets are not available'
     index = 0
-    # Keep track of consecutive occurrences (if I have 3 Markets No avaiblabe add 4 instead of three)
     consecutive_count = 0
     while index < len(football_list):
         if football_list[index] == 'Markets are not available':
@@ -44,95 +50,75 @@ def novibet_football_export(football_string: str):
             football_list.insert(index+3, 'No_market')
             index += 4
             consecutive_count += 1 
-            # Check if we have 3 consecutive occurrences
             if consecutive_count == 3:
                  football_list.insert(index, 'No_market')
-                 consecutive_count = 0  # Reset count
+                 consecutive_count = 0
         else:
             index += 1
-            consecutive_count = 0  # Reset count
+            consecutive_count = 0
     
     # Create sublists based on Championship
-    championship = [x for x in football_list if ' - ' in x]
     index_championship = [i for i,x in enumerate(football_list) if ' - ' in x]
     sublists_championships = [football_list[i:j] for i, j in zip([0]+index_championship, index_championship + [len(football_list)])]
-    # Exclude the initial empty list from sublist_championships
     sublists_championships = sublists_championships[1:]
     
-    # Set the filename for the output CSV file
-    output_file = 'data/novibet_football.csv'
-    # Open the CSV file for writing
-    with open(output_file, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        # Write the header row to the CSV file
-        header = ['Championship','Team1','Team2','Time','One','One_odd','X','X_odd','Two','Two_odd',
-                'Over','O_odd','Under','U_odd','GG','GG_odd','NG','NG_odd']
-        writer.writerow(header)
+    # Prepare list for DataFrame
+    all_data = []
 
-        # Loop through all championships
-        for j in range(len(sublists_championships)):          
-            team1_lst, team2_lst = [],[]
-            time_lst = []
-            one_lst, one_odds_lst, x_lst, x_odds_lst, two_lst, two_odds_lst = [],[],[],[],[],[]
-            over_lst, over_odds_lst, under_lst, under_odds_lst = [],[],[],[]
-            gg_lst, gg_odds_lst, ng_lst, ng_odds_lst = [],[],[],[]
-            # Create list with only teams and odds / exclude the championship at the beginning
-            teams_only_lst = sublists_championships[j][1:]
-            championship_lst = [sublists_championships[j][0] for _ in range(len(teams_only_lst) // 18)]
+    for j in range(len(sublists_championships)):          
+        teams_only_lst = sublists_championships[j][1:]
+        championship_name = sublists_championships[j][0]
+        
+        # Process in chunks of 18 (Novibet structure)
+        for i in range(0, len(teams_only_lst), 18):
+            chunk = teams_only_lst[i:i+18]
+            if len(chunk) == 18:
+                all_data.append({
+                    'Championship': championship_name,
+                    'Team1': chunk[0],
+                    'Team2': chunk[1],
+                    'Time': chunk[2],
+                    'One': chunk[3], 'One_odd': chunk[4],
+                    'X': chunk[5], 'X_odd': chunk[6],
+                    'Two': chunk[7], 'Two_odd': chunk[8],
+                    'Over': chunk[9], 'O_odd': chunk[10],
+                    'Under': chunk[11], 'U_odd': chunk[12],
+                    'GG': chunk[13], 'GG_odd': chunk[14],
+                    'NG': chunk[15], 'NG_odd': chunk[16]
+                })
+
+    # Create DataFrame once
+    df_football = pd.DataFrame(all_data)
     
-            i = 0
-            while i < len(teams_only_lst):
-                team1_lst.append(teams_only_lst[i])
-                team2_lst.append(teams_only_lst[i+1])
-                time_lst.append(teams_only_lst[i+2])
-                one_lst.append(teams_only_lst[i+3])
-                one_odds_lst.append(teams_only_lst[i+4])
-                x_lst.append(teams_only_lst[i+5])
-                x_odds_lst.append(teams_only_lst[i+6])
-                two_lst.append(teams_only_lst[i+7])
-                two_odds_lst.append(teams_only_lst[i+8])
-                over_lst.append(teams_only_lst[i+9])
-                over_odds_lst.append(teams_only_lst[i+10])
-                under_lst.append(teams_only_lst[i+11])
-                under_odds_lst.append(teams_only_lst[i+12])
-                gg_lst.append(teams_only_lst[i+13])
-                gg_odds_lst.append(teams_only_lst[i+14])
-                ng_lst.append(teams_only_lst[i+15])
-                ng_odds_lst.append(teams_only_lst[i+16])
-                i = i + 18
+    # Save
+    output_file = 'data/novibet_football.csv'
+    df_football.to_csv(output_file, index=False, encoding='utf-8')
 
-            # Write each row to the CSV file
-            for i in range(len(team1_lst)):
-                row = [championship_lst[i], team1_lst[i], team2_lst[i], time_lst[i], one_lst[i], one_odds_lst[i], 
-                        x_lst[i], x_odds_lst[i], two_lst[i], two_odds_lst[i], over_lst[i], over_odds_lst[i],
-                        under_lst[i], under_odds_lst[i], gg_lst[i], gg_odds_lst[i], ng_lst[i], ng_odds_lst[i]]
-                writer.writerow(row)
 
 #################################### Basketball #########################################################     
 
-def novibet_basketball_text(driver: selenium.webdriver.chrome.webdriver.WebDriver)->str:  
-    # Click the basketball button
-    basketball_button = driver.find_element(By.CSS_SELECTOR, '[class = "svgImage default BASKETBALL_GAME medium"]').click()
+def novibet_basketball_text(driver: selenium.webdriver.chrome.webdriver.WebDriver) -> str:  
+    driver.get("https://www.novibet.gr/en/sports")
+    time.sleep(3)
+    try:
+        basketball_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[class*="BASKETBALL_GAME"]')))
+        basketball_button.click()
+    except:
+        pass
+        
     time.sleep(5)
-    # Wait for the dailyCoupon_body element to be present on the page
     wait = WebDriverWait(driver, 10)
     daily_coupon_body = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'dailyCoupon_body')))
-    # Extract basketball text
-    basketball_string = daily_coupon_body.text
-    return basketball_string
+    return daily_coupon_body.text
 
 
 def novibet_basketball_export(basketball_string: str):
-    # Create list from the initial string
     initial_list = basketball_string.split('\n')
-    # Remove first elements of the list not needed
     remove_elements = ['Daily coupon','Football','Tennis','Basketball',
                     '24 hours','12 hours','3 hours','Popular First','SO']
     basketball_list = [x for x in initial_list if x not in remove_elements]
 
-    # Use padding for 'Markets are not available'
     index = 0
-    # Keep track of consecutive occurrences (if I have 3 Marktes No avaiblabe add 4 instead of three)
     consecutive_count = 0
     while index < len(basketball_list):
         if basketball_list[index] == 'Markets are not available':
@@ -141,93 +127,66 @@ def novibet_basketball_export(basketball_string: str):
             basketball_list.insert(index+3, 'No_market')
             index += 4
             consecutive_count += 1 
-            # Check if we have 3 consecutive occurrences
             if consecutive_count == 3:
                  basketball_list.insert(index, 'No_market')
-                 consecutive_count = 0  # Reset count
+                 consecutive_count = 0
         else:
             index += 1
-            consecutive_count = 0  # Reset count
+            consecutive_count = 0
 
-    # Create sublists based on Championship
-    championship = [x for x in basketball_list if ' - ' in x]
     index_championship = [i for i,x in enumerate(basketball_list) if ' - ' in x]
     sublists_championships = [basketball_list[i:j] for i, j in zip([0]+index_championship, index_championship + [len(basketball_list)])]
-    # Exclude the initial empty list from sublist_championships
     sublists_championships = sublists_championships[1:]
 
-    # Set the filename for the output CSV file
+    all_data = []
+
+    for j in range(len(sublists_championships)):          
+        teams_only_lst = sublists_championships[j][1:]
+        championship_name = sublists_championships[j][0]
+
+        for i in range(0, len(teams_only_lst), 16):
+            chunk = teams_only_lst[i:i+16]
+            if len(chunk) == 16:
+                all_data.append({
+                    'Championship': championship_name,
+                    'Team1': chunk[0], 'Team2': chunk[1], 'Time': chunk[2],
+                    'Win1': chunk[3], 'Win1_odd': chunk[4],
+                    'Win2': chunk[5], 'Win2_odd': chunk[6],
+                    'Over': chunk[7], 'O_odd': chunk[8],
+                    'Under': chunk[9], 'U_odd': chunk[10],
+                    'One': chunk[11], 'One_odd': chunk[12],
+                    'Two': chunk[13], 'Two_odd': chunk[14]
+                })
+
+    df_basketball = pd.DataFrame(all_data)
     output_file = "data/novibet_basketball.csv"
-    # Open the CSV file for writing
-    with open(output_file, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        # Write the header row to the CSV file
-        header = ['Championship','Team1','Team2','Time','Win1','Win1_odd','Win2','Win2_odd',
-                    'Over','O_odd','Under','U_odd','One','One_odd','Two','Two_odd']
-        writer.writerow(header)
+    df_basketball.to_csv(output_file, index=False, encoding='utf-8')
 
-        # Loop through all championships
-        for j in range(len(sublists_championships)):          
-            team1_lst, team2_lst = [],[]
-            time_lst = []
-            win_1_lst, win_1_odds_lst, win_2_lst, win_2_odds_lst = [],[],[],[]
-            over_lst, over_odds_lst, under_lst, under_odds_lst = [],[],[],[]
-            one_lst, one_odds_lst, two_lst, two_odds_lst = [],[],[],[]
-            # Create list with only teams and odds / exclude the championship at the beginning
-            teams_only_lst = sublists_championships[j][1:]
-            championship_lst = [sublists_championships[j][0] for _ in range(len(teams_only_lst) // 16)]
-    
-            i = 0
-            while i < len(teams_only_lst):
-                team1_lst.append(teams_only_lst[i])
-                team2_lst.append(teams_only_lst[i+1])
-                time_lst.append(teams_only_lst[i+2])
-                win_1_lst.append(teams_only_lst[i+3])
-                win_1_odds_lst.append(teams_only_lst[i+4])
-                win_2_lst.append(teams_only_lst[i+5])
-                win_2_odds_lst.append(teams_only_lst[i+6])
-                over_lst.append(teams_only_lst[i+7])
-                over_odds_lst.append(teams_only_lst[i+8])
-                under_lst.append(teams_only_lst[i+9])
-                under_odds_lst.append(teams_only_lst[i+10])
-                one_lst.append(teams_only_lst[i+11])
-                one_odds_lst.append(teams_only_lst[i+12])
-                two_lst.append(teams_only_lst[i+13])
-                two_odds_lst.append(teams_only_lst[i+14])
-                i = i + 16
-
-            # Write each row to the CSV file
-            for i in range(len(team1_lst)):
-                row = [championship_lst[i], team1_lst[i], team2_lst[i], time_lst[i], win_1_lst[i], win_1_odds_lst[i], 
-                        win_2_lst[i], win_2_odds_lst[i], over_lst[i], over_odds_lst[i], under_lst[i], under_odds_lst[i],
-                         one_lst[i], one_odds_lst[i], two_lst[i], two_odds_lst[i]]
-                writer.writerow(row)
 
 #################################### Tennis ######################################################### 
 
-def novibet_tennis_text(driver: selenium.webdriver.chrome.webdriver.WebDriver)->str:  
-    # Click the Tennis button
-    tennis_button = driver.find_element(By.CSS_SELECTOR, '[class = "svgImage default TENNIS_SINGLES_MATCH medium"]').click()
+def novibet_tennis_text(driver: selenium.webdriver.chrome.webdriver.WebDriver) -> str:  
+    driver.get("https://www.novibet.gr/en/sports")
+    time.sleep(3)
+    try:
+        tennis_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[class*="TENNIS_SINGLES_MATCH"]')))
+        tennis_button.click()
+    except:
+        pass
+        
     time.sleep(5)
-    # Wait for the dailyCoupon_body element to be present on the page
     wait = WebDriverWait(driver, 10)
     daily_coupon_body = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'dailyCoupon_body')))
-    # Extract basketball text
-    tennis_string = daily_coupon_body.text
-    return tennis_string
+    return daily_coupon_body.text
 
 
 def novibet_tennis_export(tennis_string: str):
-    # Create list from the initial string
     initial_list = tennis_string.split('\n')
-    # Remove first elements of the list not needed
     remove_elements = ['Daily coupon','Football','Tennis','Basketball',
                     '24 hours','12 hours','3 hours','Popular First','SO']
     tennis_list = [x for x in initial_list if x not in remove_elements]
 
-    # Use padding for 'Markets are not available'
     index = 0
-    # Keep track of consecutive occurrences (if I have 3 Marktes No avaiblabe add 4 instead of three)
     consecutive_count = 0
     while index < len(tennis_list):
         if tennis_list[index] == 'Markets are not available':
@@ -236,65 +195,37 @@ def novibet_tennis_export(tennis_string: str):
             tennis_list.insert(index+3, 'No_market')
             index += 4
             consecutive_count += 1 
-            # Check if we have 3 consecutive occurrences
             if consecutive_count == 3:
                  tennis_list.insert(index, 'No_market')
-                 consecutive_count = 0  # Reset count
+                 consecutive_count = 0 
         else:
             index += 1
-            consecutive_count = 0  # Reset count
+            consecutive_count = 0
 
-    # Create sublists based on Championship
-    championship = [x for x in tennis_list if ' - ' in x]
     index_championship = [i for i,x in enumerate(tennis_list) if ' - ' in x]
     sublists_championships = [tennis_list[i:j] for i, j in zip([0]+index_championship, index_championship + [len(tennis_list)])]
-    # Exclude the initial empty list from sublist_championships
     sublists_championships = sublists_championships[1:]
 
-    
-    # Set the filename for the output CSV file
+    all_data = []
+
+    for j in range(len(sublists_championships)):       
+        teams_only_lst = sublists_championships[j][1:]
+        championship_name = sublists_championships[j][0]
+
+        for i in range(0, len(teams_only_lst), 16):
+            chunk = teams_only_lst[i:i+16]
+            if len(chunk) == 16:
+                all_data.append({
+                    'Championship': championship_name,
+                    'Player1': chunk[0], 'Player2': chunk[1], 'Time': chunk[2],
+                    'One': chunk[3], 'One_odd': chunk[4],
+                    'Two': chunk[5], 'Two_odd': chunk[6],
+                    'Over': chunk[7], 'O_odd': chunk[8],
+                    'Under': chunk[9], 'U_odd': chunk[10],
+                    'Win1': chunk[11], 'Win1_odd': chunk[12],
+                    'Win2': chunk[13], 'Win2_odd': chunk[14]
+                })
+
+    df_tennis = pd.DataFrame(all_data)
     output_file = "data/novibet_tennis.csv"
-    # Open the CSV file for writing
-    with open(output_file, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        # Write the header row to the CSV file
-        header = ['Championship','Player1','Player2','Time','One','One_odd','Two','Two_odd',
-                    'Over','O_odd','Under','U_odd','Win1','Win1_odd','Win2','Win2_odd']
-        writer.writerow(header)
-
-        # Loop through all championships
-        for j in range(len(sublists_championships)):       
-            player1_lst, player2_lst = [],[]
-            time_lst = []
-            one_lst, one_odds_lst, two_lst, two_odds_lst = [],[],[],[]
-            over_lst, over_odds_lst, under_lst, under_odds_lst = [],[],[],[]
-            win_1_lst, win_1_odds_lst, win_2_lst, win_2_odds_lst = [],[],[],[]
-            # Create list with only teams and odds / exclude the championship at the beginning
-            teams_only_lst = sublists_championships[j][1:]
-            championship_lst = [sublists_championships[j][0] for _ in range(len(teams_only_lst) // 16)]
-    
-            i = 0
-            while i < len(teams_only_lst):
-                player1_lst.append(teams_only_lst[i])
-                player2_lst.append(teams_only_lst[i+1])
-                time_lst.append(teams_only_lst[i+2])
-                one_lst.append(teams_only_lst[i+3])
-                one_odds_lst.append(teams_only_lst[i+4])
-                two_lst.append(teams_only_lst[i+5])
-                two_odds_lst.append(teams_only_lst[i+6])
-                over_lst.append(teams_only_lst[i+7])
-                over_odds_lst.append(teams_only_lst[i+8])
-                under_lst.append(teams_only_lst[i+9])
-                under_odds_lst.append(teams_only_lst[i+10])
-                win_1_lst.append(teams_only_lst[i+11])
-                win_1_odds_lst.append(teams_only_lst[i+12])
-                win_2_lst.append(teams_only_lst[i+13])
-                win_2_odds_lst.append(teams_only_lst[i+14])
-                i = i + 16
-
-            # Write each row to the CSV file
-            for i in range(len(player1_lst)):
-                row = [championship_lst[i], player1_lst[i], player2_lst[i], time_lst[i], one_lst[i], one_odds_lst[i],
-                       two_lst[i], two_odds_lst[i], over_lst[i], over_odds_lst[i], under_lst[i], under_odds_lst[i],
-                       win_1_lst[i], win_1_odds_lst[i], win_2_lst[i], win_2_odds_lst[i]]
-                writer.writerow(row)
+    df_tennis.to_csv(output_file, index=False, encoding='utf-8')
