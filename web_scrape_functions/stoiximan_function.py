@@ -83,7 +83,7 @@ def stoiximan_football_export(football_string: str):
             sublist.extend([extra_element] * (15 - len(sublist)))
 
     # Set the filename for the output CSV file
-    output_file = "data\stoiximan_football.csv"
+    output_file = "data/stoiximan_football.csv"
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Date', 'Time', 'Team1', 'Team2', 'One_odd', 'X_odd', 'Two_odd', 'O', 'O_odd', 
@@ -166,7 +166,7 @@ def stoiximan_basketball_export(basketball_string: str):
             sublist.extend([extra_element] * (14 - len(sublist)))
 
     # Set the filename for the output CSV file
-    output_file = "data\stoiximan_basketball.csv"
+    output_file = "data/stoiximan_basketball.csv"
     with open(output_file, 'w', newline='',  encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Date', 'Time', 'Team1', 'Team2', 'One_odd', 'Two_odd',
@@ -249,7 +249,7 @@ def stoiximan_tennis_export(tennis_string: str):
             sublist.extend([extra_element] * (14 - len(sublist)))
 
     # Set the filename for the output CSV file
-    output_file = "data\stoiximan_tennis.csv"
+    output_file = "data/stoiximan_tennis.csv"
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Date', 'Time', 'Player1', 'Player2', 'One_odd', 'Two_odd', 
